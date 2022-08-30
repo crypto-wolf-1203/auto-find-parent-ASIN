@@ -20,6 +20,7 @@ import org.openqa.selenium.interactions.Actions;
 import java.io.*;
 import java.util.*;
 import java.util.concurrent.TimeUnit;
+import java.util.logging.Level;
 import java.util.stream.Collectors;
 
 public class MainController {
@@ -28,6 +29,7 @@ public class MainController {
     private ArrayList<String> listAsinError;
 
     public MainController() throws IOException {
+    	java.util.logging.Logger.getLogger("selenium.webdriver.remote.remote_connection").setLevel(Level.INFO);
     	readConfig();
     }
 
@@ -55,7 +57,7 @@ public class MainController {
         try {
             WebDriver driver = getWebDriver(configTool);
             log.debug("Start Click");
-            listAsinError = new ArrayList<>();
+            listAsinError = new ArrayList<String>();
             processASINs(configTool, driver);
             driver.close();
         } catch (org.openqa.selenium.NoSuchElementException ex) {
@@ -98,33 +100,60 @@ public class MainController {
         //Gõ Asin vào rồi search
         File file = new File("config/asin.txt");
         List<String> listAsin = FileUtil.readAsin(file.getPath());
-        List<String> parentAsin = new ArrayList<>();
+        ArrayList<String> parentAsin = new ArrayList<String>();
         
         driver.get(configTool.getUrl());
+        TimeUnit.SECONDS.sleep(10);
         
         for (String asin : listAsin) {
-        	WebElement option = findElementNoExceptionWithWebDriver(driver, By.partialLinkText("https://www.amazon.com.au"));
-        	scrollToElement(driver, option);
-        	option.click();
-        	TimeUnit.SECONDS.sleep(configTool.getTimeOutClick());
-        	
-        	WebElement asinInput = findElementNoExceptionWithWebDriver(driver, By.cssSelector("input[name='asin']"));
-        	scrollToElement(driver, asinInput);
-        	asinInput.sendKeys(asin);
-        	
-        	WebElement asinFindBtn = findElementNoExceptionWithWebDriver(driver, By.cssSelector("input[value='Find Asin']"));
-        	scrollToElement(driver, asinFindBtn);
-        	asinFindBtn.click();
-        	TimeUnit.SECONDS.sleep(configTool.getTimeOutClick());
-        	
-        	List<WebElement> asinTable = driver.findElements(By.ByTagName.tagName("tr"));
-        	for (WebElement tr : asinTable) {
-        		WebElement p = findElementNoExceptionWithWebElement(tr, By.ByXPath.xpath("//td[1]"));
-        		WebElement m = findElementNoExceptionWithWebElement(tr, By.ByXPath.xpath("//td[2]"));
-        		
-        		if (m.getText().toUpperCase() == asin.toUpperCase()) {
-        			parentAsin.add(p.getText());
-        		}
+        	try {
+	        	List<WebElement> options = driver.findElements(By.cssSelector("label.radio-inline"));
+	        	int tFound = 0;
+	        	for (WebElement option : options) {
+	        		if (option.getText().contains("https://www.amazon.com.au")) {
+	        			scrollToElement(driver, option);
+	                	option.click();
+	                	tFound = 1;
+	        		}
+	        	}
+	        	if (tFound != 1) {
+	        		throw new IOException("option not found");
+	        	}
+	        	TimeUnit.SECONDS.sleep(configTool.getTimeOutClick());
+	        	
+	        	WebElement asinInput = findElementNoExceptionWithWebDriver(driver, By.cssSelector("input[name='asin']"));
+	        	scrollToElement(driver, asinInput);
+	        	asinInput.sendKeys(asin);
+	        	
+	        	WebElement asinFindBtn = findElementNoExceptionWithWebDriver(driver, By.cssSelector("input[value='Find Asin']"));
+	        	scrollToElement(driver, asinFindBtn);
+	        	asinFindBtn.click();
+	        	TimeUnit.SECONDS.sleep(configTool.getTimeOutClick());
+	        	
+	        	WebElement tbody = findElementNoExceptionWithWebDriver(driver, By.ByTagName.tagName("tbody"));
+	        	
+	        	List<WebElement> asinTable = tbody.findElements(By.ByTagName.tagName("tr"));
+	        	
+	        	for (WebElement tr : asinTable) {
+	        		List<WebElement> cols = tr.findElements(By.ByTagName.tagName("td"));
+	        		String parent = "";
+	        		String child = "";
+	        		int i = 0;
+	        		for (WebElement we : cols) {
+	        			i ++;
+	        			if (i == 1) parent = we.getText();
+	        			else if (i == 2) child = we.getText();
+	        			else break;
+	        		}
+	        		
+	        		if (child.toUpperCase().equals(asin.toUpperCase())) {
+	        			parentAsin.add(asin);
+	        			parentAsin.add(parent);
+	        			break;
+	        		}
+	        	}
+        	} catch (Exception e) {
+        		listAsinError.add(asin);
         	}
         }
         exportAins(parentAsin);
@@ -134,9 +163,15 @@ public class MainController {
     	if (parentAsin.size() > 0) {    	
 	        FileWriter fileWriter = new FileWriter("parent-asin.txt", true);
 	        BufferedWriter printWriter = new BufferedWriter(fileWriter);
+	        int i = 0;
 	        for (String p : parentAsin) {
 	            printWriter.write(p);
-	            printWriter.newLine();
+	            i ++;
+	            if ((i % 2) == 0) {
+	            	printWriter.newLine();
+	            } else {
+	            	printWriter.write("=>");
+	            }
 	        }
 	        printWriter.close();
 	        log.debug("Done Export Parent Asin List");

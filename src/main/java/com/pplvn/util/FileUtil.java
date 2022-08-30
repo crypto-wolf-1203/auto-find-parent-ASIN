@@ -9,9 +9,10 @@ import java.util.stream.Stream;
 
 public class FileUtil {
     public static List<String> readAsin(String path) throws IOException {
-        List<String> list = null;
-        Stream<String> lines = Files.lines(Paths.get(path));
-        list = lines.collect(Collectors.toList());
+    	List<String> list = null;
+        try (Stream<String> lines = Files.lines(Paths.get(path))) {
+			list = lines.collect(Collectors.toList());
+		}
         return list;
     }
 }
