@@ -42,6 +42,7 @@ public class MainController {
         configTool = new ConfigTool();
 
         configTool.setUrl(loadProperties(prop, "amazon.url"));
+        configTool.setMarket(loadProperties(prop, "amazon.market"));
         configTool.setData(loadProperties(prop, "options.chrome.user.data"));
         configTool.setProfile(loadProperties(prop, "options.chrome.profile.directory"));
         configTool.setTimeOutClick(Integer.parseInt(loadProperties(prop, "options.chrome.time.out.click")));
@@ -110,7 +111,7 @@ public class MainController {
 	        	List<WebElement> options = driver.findElements(By.cssSelector("label.radio-inline"));
 	        	int tFound = 0;
 	        	for (WebElement option : options) {
-	        		if (option.getText().contains("https://www.amazon.com.au")) {
+	        		if (option.getText().contains(configTool.getMarket())) {
 	        			scrollToElement(driver, option);
 	                	option.click();
 	                	tFound = 1;

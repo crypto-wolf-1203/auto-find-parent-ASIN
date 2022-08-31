@@ -3,6 +3,7 @@ package com.pplvn.model;
 public class ConfigTool {
     String profile;
     String url;
+    String market;
     String data;
     String country;
     String price;
@@ -119,6 +120,16 @@ public class ConfigTool {
     public String setUrl(String url) {
         this.url = url;
         return url;
+    }
+    
+    public String getMarket() {
+        return market;
+    }
+
+    public String setMarket(String market) {
+    	String old = this.market;
+        this.market = market;
+        return old;
     }
 
     public String getProfile() {
