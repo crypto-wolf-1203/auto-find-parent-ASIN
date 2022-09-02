@@ -42,10 +42,10 @@ public class MainController {
         configTool = new ConfigTool();
 
         configTool.setUrl(loadProperties(prop, "amazon.url"));
-        configTool.setMarket(loadProperties(prop, "amazon.market"));
         configTool.setData(loadProperties(prop, "options.chrome.user.data"));
         configTool.setProfile(loadProperties(prop, "options.chrome.profile.directory"));
-        configTool.setTimeOutClick(Integer.parseInt(loadProperties(prop, "options.chrome.time.out.click")));
+        configTool.setTimeOutOpen(Integer.parseInt(loadProperties(prop, "options.chrome.time.out.open")));
+        configTool.setTimeOutClose(Integer.parseInt(loadProperties(prop, "options.chrome.time.out.close")));
     }
     
     private String loadProperties(Properties prop, String name) {
@@ -103,59 +103,59 @@ public class MainController {
         List<String> listAsin = FileUtil.readAsin(file.getPath());
         ArrayList<String> parentAsin = new ArrayList<String>();
         
-        driver.get(configTool.getUrl());
-        TimeUnit.SECONDS.sleep(10);
-        
         for (String asin : listAsin) {
+        	String strURL = configTool.getUrl() + asin;
+    		log.debug("**********************************");
+    		log.debug("**********************************");
+    		log.debug("**********************************");
+    		log.debug("**********************************");
+    		log.debug("**********************************");
+    		log.debug("loading " + strURL);
+    		log.debug("**********************************");
+    		log.debug("**********************************");
+    		log.debug("**********************************");
+    		log.debug("**********************************");
+    		log.debug("**********************************");
+    		driver.get(strURL);
+    		TimeUnit.SECONDS.sleep(configTool.getTimeOutOpen());
+
         	try {
-	        	List<WebElement> options = driver.findElements(By.cssSelector("label.radio-inline"));
-	        	int tFound = 0;
-	        	for (WebElement option : options) {
-	        		if (option.getText().contains(configTool.getMarket())) {
-	        			scrollToElement(driver, option);
-	                	option.click();
-	                	tFound = 1;
+        		String p = driver.getPageSource();
+	        	int foundIndex = p.indexOf("\"parentAsin\"");
+	        	
+	        	while (foundIndex > -1) {
+	        		String q = p.substring(foundIndex + 12, foundIndex + 40);
+	        		q = q.trim();
+	        		String qFound = null;
+
+	        		if (q.length() > 0 && q.charAt(0) == ':') {
+	        			q = q.substring(1);
+	        			q = q.trim();
+	        			if (q.length() > 0 && q.charAt(0) == '\"') {
+	        				int endIndex = q.indexOf('\"', 1);
+	        				if (endIndex > 0) {
+	        					qFound = q.substring(1, q.length() - 2);
+	        				}
+	        			}
 	        		}
-	        	}
-	        	if (tFound != 1) {
-	        		throw new IOException("option not found");
-	        	}
-	        	TimeUnit.SECONDS.sleep(configTool.getTimeOutClick());
-	        	
-	        	WebElement asinInput = findElementNoExceptionWithWebDriver(driver, By.cssSelector("input[name='asin']"));
-	        	scrollToElement(driver, asinInput);
-	        	asinInput.sendKeys(asin);
-	        	
-	        	WebElement asinFindBtn = findElementNoExceptionWithWebDriver(driver, By.cssSelector("input[value='Find Asin']"));
-	        	scrollToElement(driver, asinFindBtn);
-	        	asinFindBtn.click();
-	        	TimeUnit.SECONDS.sleep(configTool.getTimeOutClick());
-	        	
-	        	WebElement tbody = findElementNoExceptionWithWebDriver(driver, By.ByTagName.tagName("tbody"));
-	        	
-	        	List<WebElement> asinTable = tbody.findElements(By.ByTagName.tagName("tr"));
-	        	
-	        	for (WebElement tr : asinTable) {
-	        		List<WebElement> cols = tr.findElements(By.ByTagName.tagName("td"));
-	        		String parent = "";
-	        		String child = "";
-	        		int i = 0;
-	        		for (WebElement we : cols) {
-	        			i ++;
-	        			if (i == 1) parent = we.getText();
-	        			else if (i == 2) child = we.getText();
-	        			else break;
-	        		}
-	        		
-	        		if (child.toUpperCase().equals(asin.toUpperCase())) {
+	        		if (qFound != null) {
 	        			parentAsin.add(asin);
-	        			parentAsin.add(parent);
+	        			parentAsin.add(qFound);
+	        			
+	        			log.debug("**********************************");
+		        		log.debug("**********************************");
+		        		log.debug("found [" + qFound + "]");
+		        		log.debug("**********************************");
+		        		log.debug("**********************************");
 	        			break;
 	        		}
+	        		foundIndex = p.indexOf("\"parentAsin\"", foundIndex);
 	        	}
         	} catch (Exception e) {
         		listAsinError.add(asin);
         	}
+        	
+        	TimeUnit.SECONDS.sleep(configTool.getTimeOutClose());
         }
         exportAins(parentAsin);
     }
