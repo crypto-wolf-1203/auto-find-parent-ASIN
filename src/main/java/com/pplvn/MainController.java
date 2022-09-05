@@ -16,6 +16,7 @@ import org.openqa.selenium.chrome.ChromeOptions;
 import org.openqa.selenium.support.ui.WebDriverWait;
 import org.openqa.selenium.JavascriptExecutor;
 import org.openqa.selenium.interactions.Actions;
+import org.json.*;
 
 import java.io.*;
 import java.util.*;
@@ -123,6 +124,7 @@ public class MainController {
         		String p = driver.getPageSource();
 	        	int foundIndex = p.indexOf("\"parentAsin\"");
 	        	
+	        	boolean bParentFound = false;
 	        	while (foundIndex > -1) {
 	        		String q = p.substring(foundIndex + 12, foundIndex + 40);
 	        		q = q.trim();
@@ -141,6 +143,7 @@ public class MainController {
 	        		if (qFound != null) {
 	        			parentAsin.add(asin);
 	        			parentAsin.add(qFound);
+	        			bParentFound = true;
 	        			
 	        			log.debug("**********************************");
 		        		log.debug("**********************************");
@@ -151,7 +154,34 @@ public class MainController {
 	        		}
 	        		foundIndex = p.indexOf("\"parentAsin\"", foundIndex);
 	        	}
+	        	
+	        	if (bParentFound) {
+		        	int listIndex = p.indexOf("\"dimensionValuesDisplayData\"");
+		        	int startIndex = p.indexOf('{', listIndex);
+		        	int endIndex = p.indexOf('}', startIndex);
+		        	String jsonString = p.substring(startIndex, endIndex + 1);
+		        	JSONObject obj = new JSONObject(jsonString);
+		        	Set<String> keys = obj.keySet();
+		        	for (Iterator<String> it = keys.iterator(); it.hasNext(); ) {
+		        		String f = it.next();
+		        		parentAsin.add(f);
+		        		
+		        		String vari = new String("");
+		        		JSONArray arr = obj.getJSONArray(f);
+		        		for (int i = 0; i < arr.length(); i ++) {
+		        			if (i > 0) vari += "-";
+		        			vari += arr.getString(i);
+		        		}
+		        		parentAsin.add(vari);
+		            }
+	        	}
+	        	parentAsin.add("");
         	} catch (Exception e) {
+        		log.debug("**********************************");
+        		log.debug("**********************************");
+        		log.debug(e.getMessage());
+        		log.debug("**********************************");
+        		log.debug("**********************************");
         		listAsinError.add(asin);
         	}
         	
@@ -162,23 +192,53 @@ public class MainController {
 
     private void exportAins(List<String> parentAsin) throws IOException {
     	if (parentAsin.size() > 0) {    	
-	        FileWriter fileWriter = new FileWriter("parent-asin.txt", true);
+	        FileWriter fileWriter = new FileWriter("parent-asin.csv", true);
 	        BufferedWriter printWriter = new BufferedWriter(fileWriter);
-	        int i = 0;
+	        
+	        printWriter.write("currentASIN,parentASIN,ChildASIN,Variation");
+	        printWriter.newLine();
+	        int step = 0, oldstep = 0;
+	        boolean newASIN = true;
+
 	        for (String p : parentAsin) {
-	            printWriter.write(p);
-	            i ++;
-	            if ((i % 2) == 0) {
-	            	printWriter.newLine();
-	            } else {
-	            	printWriter.write("=>");
-	            }
+	        	if (p.length() == 0) {
+	        		step = 0;
+	        		printWriter.newLine();
+	        		newASIN = true;
+	        	} else {
+		        	switch (step) {
+		        	case 0:
+		        		printWriter.write(p);
+		        		step = 1;
+		        		break;
+		        	case 1:
+		        		printWriter.write(",");
+		        		printWriter.write(p);
+		        		step = 2;
+		        		break;
+		        	case 2:
+		        		if (!newASIN) {
+		        			printWriter.newLine();
+			        		printWriter.write(",");
+		        		}
+		        		printWriter.write(",");
+		        		printWriter.write(p);
+		        		step = 3;
+		        		break;
+		        	case 3:
+		        		printWriter.write(",");
+		        		printWriter.write(p);
+		        		newASIN = false;
+		        		step = 2;
+		        		break;
+		        	}
+	        	}
 	        }
 	        printWriter.close();
 	        log.debug("Done Export Parent Asin List");
     	}
     	if (listAsinError.size() > 0) {    	
-	        FileWriter fileWriter = new FileWriter("config/asin-error.txt", true);
+	        FileWriter fileWriter = new FileWriter("asin-error.txt", true);
 	        BufferedWriter printWriter = new BufferedWriter(fileWriter);
 	        for (String asinLink : listAsinError) {
 	            printWriter.write(asinLink);
